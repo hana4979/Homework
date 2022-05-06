@@ -2,17 +2,44 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 static int Day = 0, Time = 0;
-GLboolean IsWire = 1; // 참
-GLboolean IsParallel = 1; // 참
+GLboolean IsWire = true; // 참
+GLboolean IsParallel = false; // 참
+
+const int StartWindowWidth = 500;
+const int StartWindowHeight = 500;
+
+GLint CurrentWindowWidth = 500;
+GLint CurrentWindowHeight = 500;
+
+void setProjectionState() {
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	if (IsParallel) {
+		GLfloat WidthFactor = (GLfloat)CurrentWindowWidth / (GLfloat)StartWindowWidth;
+		GLfloat HeightFactor = (GLfloat)CurrentWindowHeight / (GLfloat)StartWindowHeight;
+		glOrtho(-1.0 * WidthFactor, 1.0 * WidthFactor, -1.0 * HeightFactor, 1.0 * HeightFactor, -1.0, 10.0);
+
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		gluLookAt(0, 1, 2, 0, 0, 0, 0, 1, 0);
+	}
+	else {
+		gluPerspective(30, (GLfloat)CurrentWindowWidth / (GLfloat)CurrentWindowHeight, 1, 50);
+
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		gluLookAt(2, 2, 4, 0, 0, 0, 0, 1, 0);
+	}
+}
 
 void MyDisplay() {
 	glClear(GL_COLOR_BUFFER_BIT);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
 	glColor3f(1.0, 0.3, 0.3);
 	if (IsWire)
-		glutWireSphere(0.2, 20, 16);
-	else glutWireTorus(0.05, 0.15, 20, 16);
+		glutWireSphere(0.2, 20, 15);
+	else
+		glutSolidSphere(0.2, 20, 15);
+
 	glPushMatrix();
 	glRotatef((GLfloat)Day, 0.0, 1.0, 0.0);
 	glTranslatef(0.7, 0.0, 0.0);
@@ -20,22 +47,19 @@ void MyDisplay() {
 	glColor3f(0.5, 0.6, 0.7);
 	if (IsWire)
 		glutWireSphere(0.1, 10, 8);
-	else glutWireTorus(0.08, 0.02, 10, 8);
+	else
+		glutSolidSphere(0.1, 10, 8);
 	glPushMatrix();
 	glRotatef((GLfloat)Time, 0.0, 1.0, 0.0);
 	glTranslatef(0.2, 0.0, 0.0);
 	glColor3f(0.9, 0.8, 0.2);
 	if (IsWire)
 		glutWireSphere(0.04, 10, 8);
-	else glutWireTorus(0.03, 0.01, 10, 8);
+	else
+		glutSolidSphere(0.04, 10, 8);
 	glPopMatrix();
 	glPopMatrix();
 
-	if (IsParallel)
-		glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
-	else
-		glFrustum(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
-	//glLookAt()
 
 	// 3차원 객체 확인용 좌표축
 	glBegin(GL_LINES);
@@ -49,6 +73,7 @@ void MyDisplay() {
 	glVertex3f(0.0f, 0.0f, 0.0f);
 	glVertex3f(0.0f, 0.0f, 1.0f);
 	glEnd();
+
 	glutSwapBuffers();
 }
 
@@ -84,40 +109,36 @@ void MyMainMenu(int entryID) {
 
 void MySubMenu(int entryID) {
 	if (entryID == 1)
-		IsWire = 1; // 참
+		IsWire = true; // 참
 	else if (entryID == 2)
-		IsWire = 0; // 거짓
+		IsWire = false; // 거짓
 	glutPostRedisplay();
 }
 
 void MyProjectionSubMenu(int projectionID) {
 	if (projectionID == 1)
-		IsParallel = 1; // 참
+		IsParallel = true; // 참
 	else if (projectionID == 2)
-		IsParallel = 2; // 거짓
+		IsParallel = false; // 거짓
+	setProjectionState();
 	glutPostRedisplay();
 }
 
 // 창크기 변경되어도 왜곡 발생 X
 void MyReshape(int NewWidth, int NewHeight) {
-	glViewport(0, 0, NewWidth, NewHeight);
-	GLfloat WidthFactor = (GLfloat)NewWidth / (GLfloat)500;
-	GLfloat HeightFactor = (GLfloat)NewHeight / (GLfloat)500;
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-1.0 * WidthFactor, 1.0 * WidthFactor, -1.0 * HeightFactor, 1.0 * HeightFactor, -1.0, 1.0);
+	CurrentWindowWidth = NewWidth;
+	CurrentWindowHeight = NewHeight;
+	glViewport(0, 0, CurrentWindowWidth, CurrentWindowHeight);
+	setProjectionState();
 }
 
 int main(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(500, 500);
+	glutInitWindowSize(StartWindowWidth, StartWindowHeight);
 	glutInitWindowPosition(0, 0);
 	glutCreateWindow("OpenGL Sample Drawing");
 	glClearColor(1.0, 1.0, 1.0, 1.0);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0);
 
 	GLint MySubMenuID = glutCreateMenu(MySubMenu); // Rendering Menu 추가
 	glutAddMenuEntry("Solid", 1);
