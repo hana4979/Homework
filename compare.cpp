@@ -19,8 +19,7 @@ const int StartWindowHeight = 500;
 GLint CurrentWindowWidth = 500;
 GLint CurrentWindowHeight = 500;
 
-GLUquadric* earth = NULL;
-GLUquadric* moon = NULL;
+GLUquadric* solid_sphere = NULL;
 
 GLuint MyTextureObject[2];
 AUX_RGBImageRec* pTextureImage[2];
@@ -32,12 +31,12 @@ void MyLightInit() {
     glEnable(GL_LIGHTING); // 조명 기능 활성화
 
     // 전역 광원 설정
-    GLfloat global_ambient[] = { 0.1, 0.1, 0.1, 1 };
+    GLfloat global_ambient[] = { 1, 1, 1, 1 };
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
 
     // 태양 광원 설정
-    GLfloat sun_diffuse[] = { 1.5, 0, 0, 1 }; // 분산광
+    GLfloat sun_diffuse[] = { 1, 1, 1, 1 }; // 분산광
     glEnable(GL_LIGHT0);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, sun_diffuse);
 
@@ -123,7 +122,7 @@ void MyDisplay() {
     }
     else {
         glBindTexture(GL_TEXTURE_2D, MyTextureObject[0]);
-        gluSphere(earth, 0.1, 10, 8);
+        gluSphere(solid_sphere, 0.1, 10, 8);
     }
 
     // 달 출력
@@ -132,14 +131,12 @@ void MyDisplay() {
     glTranslatef(0.2, 0.0, 0.0);
     glColor3f(0.9, 0.8, 0.2);
     glLightfv(GL_LIGHT2, GL_POSITION, lightPosition);
-    drawSphere(0.04, 10, 8);
     if (IsWire) {
         glutWireSphere(0.04, 10, 8);
     }
     else {
         glBindTexture(GL_TEXTURE_2D, MyTextureObject[1]);
-        gluSphere(moon, 0.04, 10, 8);
-
+        gluSphere(solid_sphere, 0.04, 10, 8);
     }
 
     glPopMatrix();
@@ -150,42 +147,23 @@ void MyDisplay() {
     glutSwapBuffers();
 }
 
-// 파일을 로드하고 텍스처로 변환
-AUX_RGBImageRec* LoadBMP(const char* szFilename)
-{
-    FILE* pFile = NULL;
-    if (!szFilename)
-        return NULL;
-    fopen_s(&pFile, szFilename, "r");
-    if (pFile) {
-        fclose(pFile);
-        return auxDIBImageLoad(szFilename);
-    }
-    return NULL;
-}
 // 텍스처 매핑
-int loadTexture(void)
+void loadTexture(void)
 {
-    int Status = FALSE;
+    pTextureImage[0] = auxDIBImageLoad(".\\earth.bmp");
+    pTextureImage[1] = auxDIBImageLoad(".\\moon.bmp");
 
-    gluQuadricTexture(earth, GL_TRUE);
-    gluQuadricTexture(moon, GL_TRUE);
-
-    memset(pTextureImage, 0, sizeof(void*) * 1);
-
-    if ((pTextureImage[0] = LoadBMP(".\\earth.bmp")) && (pTextureImage[1] = LoadBMP(".\\moon.bmp")))
+    glGenTextures(2, MyTextureObject);
+    for (int i = 0; i < 2; i++)
     {
-        Status = TRUE;
-        glGenTextures(2, MyTextureObject);
-        for (int i = 0; i < 2; i++)
-        {
-            glBindTexture(GL_TEXTURE_2D, MyTextureObject[i]);
-            glTexImage2D(GL_TEXTURE_2D, 0, 3, pTextureImage[i]->sizeX, pTextureImage[i]->sizeY, 0, GL_RGB, GL_UNSIGNED_BYTE, pTextureImage[i]->data);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glEnable(GL_TEXTURE_2D);
-        }
+        glBindTexture(GL_TEXTURE_2D, MyTextureObject[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, 3, pTextureImage[i]->sizeX, pTextureImage[i]->sizeY, 0,
+            GL_RGB, GL_UNSIGNED_BYTE, pTextureImage[i]->data);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     }
+
     for (int i = 0; i < 2; i++)
     {
         if (pTextureImage[i])
@@ -195,8 +173,6 @@ int loadTexture(void)
             free(pTextureImage[i]);
         }
     }
-    return Status;
-
 }
 
 // 'D' 'T' 입력 시 반대방향 회전
@@ -281,20 +257,14 @@ int main(int argc, char** argv) {
     glLoadIdentity();
 
     // 텍스처 매핑
-    earth = gluNewQuadric();
-    moon = gluNewQuadric();
-
-    gluQuadricNormals(earth, GLU_SMOOTH);
-    gluQuadricOrientation(earth, GLU_OUTSIDE);
-    gluQuadricDrawStyle(earth, GLU_FILL);
-    gluQuadricTexture(earth, GL_TRUE);
-
-    gluQuadricNormals(moon, GLU_SMOOTH);
-    gluQuadricOrientation(moon, GLU_OUTSIDE);
-    gluQuadricDrawStyle(moon, GLU_FILL);
-    gluQuadricTexture(moon, GL_TRUE);
-
     glEnable(GL_TEXTURE_2D);
+    solid_sphere = gluNewQuadric();
+
+    gluQuadricNormals(solid_sphere, GLU_SMOOTH);
+    gluQuadricOrientation(solid_sphere, GLU_OUTSIDE);
+    gluQuadricDrawStyle(solid_sphere, GLU_FILL);
+    gluQuadricTexture(solid_sphere, GL_TRUE);
+
     loadTexture();
 
     // 콜백 함수 등록
