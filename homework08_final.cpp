@@ -1,9 +1,17 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include <GL/glut.h>
-#include <GL/gl.h>
+#include <GL/glaux.h>
 #include <GL/glu.h>
+#include <GL/gl.h>
+
+#pragma comment (lib, "glaux.lib")
+#pragma comment(lib, "legacy_stdio_definitions.lib")
+
 static int Day = 0, Time = 0;
 GLboolean IsWire = true;
 GLboolean IsParallel = true;
+GLfloat Xrot, Yrot, Zrot;
 
 const int StartWindowWidth = 500;
 const int StartWindowHeight = 500;
@@ -11,27 +19,29 @@ const int StartWindowHeight = 500;
 GLint CurrentWindowWidth = 500;
 GLint CurrentWindowHeight = 500;
 
+GLUquadric* solid_sphere = NULL;
+
+GLuint MyTextureObject[2];
+AUX_RGBImageRec* pTextureImage[2];
+
 // 광원 상태 변수 설정
 void MyLightInit() {
-
 	glShadeModel(GL_SMOOTH); // 구로 셰이딩
 	glEnable(GL_DEPTH_TEST); // 깊이 버퍼 활성화
 	glEnable(GL_LIGHTING); // 조명 기능 활성화
 
 	// 전역 광원 설정
-	GLfloat global_ambient[] = { 0.1, 0.1, 0.1, 1 };
+	GLfloat global_ambient[] = { 1, 1, 1, 1 };
 	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
 	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
 
 	// 태양 광원 설정
-	GLfloat sun_diffuse[] = { 1.5, 0, 0, 1 }; // 분산광
+	GLfloat sun_diffuse[] = { 1, 1, 1, 1 }; // 분산광
 	glEnable(GL_LIGHT0);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, sun_diffuse);
 
-
 	// 지구 광원 설정
 	GLfloat earth_diffuse[] = { 0, 0.7, 0, 1 };
-	glEnable(GL_LIGHT1);
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, earth_diffuse);
 
 	// 달 광원 설정
@@ -88,7 +98,6 @@ void drawSphere(GLdouble radius, GLint slices, GLint stacks) {
 
 void MyDisplay() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	setProjection();
 
 	// 광원 위치
@@ -108,7 +117,13 @@ void MyDisplay() {
 	glRotatef((GLfloat)Time, 0.0, 1.0, 0.0);
 	glColor3f(0.5, 0.6, 0.7);
 	glLightfv(GL_LIGHT1, GL_POSITION, lightPosition);
-	drawSphere(0.1, 10, 8);
+	if (IsWire) {
+		glutWireSphere(0.1, 10, 8);
+	}
+	else {
+		glBindTexture(GL_TEXTURE_2D, MyTextureObject[0]);
+		gluSphere(solid_sphere, 0.1, 10, 8);
+	}
 
 	// 달 출력
 	glPushMatrix();
@@ -116,7 +131,13 @@ void MyDisplay() {
 	glTranslatef(0.2, 0.0, 0.0);
 	glColor3f(0.9, 0.8, 0.2);
 	glLightfv(GL_LIGHT2, GL_POSITION, lightPosition);
-	drawSphere(0.04, 10, 8);
+	if (IsWire) {
+		glutWireSphere(0.04, 10, 8);
+	}
+	else {
+		glBindTexture(GL_TEXTURE_2D, MyTextureObject[1]);
+		gluSphere(solid_sphere, 0.04, 10, 8);
+	}
 
 	glPopMatrix();
 	glPopMatrix();
@@ -124,6 +145,34 @@ void MyDisplay() {
 	drawXyzLine();
 
 	glutSwapBuffers();
+}
+
+// 텍스처 매핑
+void loadTexture(void)
+{
+	pTextureImage[0] = auxDIBImageLoad(".\\earth.bmp");
+	pTextureImage[1] = auxDIBImageLoad(".\\moon.bmp");
+
+	glGenTextures(2, MyTextureObject);
+	for (int i = 0; i < 2; i++)
+	{
+		glBindTexture(GL_TEXTURE_2D, MyTextureObject[i]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_2D, 0, 3, pTextureImage[i]->sizeX, pTextureImage[i]->sizeY, 0,
+			GL_RGB, GL_UNSIGNED_BYTE, pTextureImage[i]->data);
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	}
+
+	for (int i = 0; i < 2; i++)
+	{
+		if (pTextureImage[i])
+		{
+			if (pTextureImage[i]->data)
+				free(pTextureImage[i]->data);
+			free(pTextureImage[i]);
+		}
+	}
 }
 
 // 'D' 'T' 입력 시 반대방향 회전
@@ -152,8 +201,8 @@ void MyKeyboard(unsigned char key, int x, int y) {
 
 void MyMainMenu(int entryID) {
 	if (entryID == 3)
-		exit(0);
-	glutPostRedisplay();
+		//exit(0);
+		glutPostRedisplay();
 }
 
 void RenderingMenu(int entryID) {
@@ -179,13 +228,17 @@ void MyReshape(int NewWidth, int NewHeight) {
 }
 
 int main(int argc, char** argv) {
+
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
 	glutInitWindowSize(StartWindowWidth, StartWindowHeight);
 	glutInitWindowPosition(0, 0);
+	glutCreateWindow("OpenGL Sample Drawing");
 
 	MyLightInit();
 	glClearColor(0.1, 0.1, 0.1, 1.0);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
 
 	// 메뉴 추가
 	GLint MySubMenuID = glutCreateMenu(RenderingMenu); // Rendering Menu 추가
@@ -199,6 +252,20 @@ int main(int argc, char** argv) {
 	glutAddSubMenu("Change Projection", MyProjectionSubMenuID);
 	glutAddMenuEntry("Exit", 3);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	// 텍스처 매핑
+	glEnable(GL_TEXTURE_2D);
+	solid_sphere = gluNewQuadric();
+
+	gluQuadricNormals(solid_sphere, GLU_SMOOTH);
+	gluQuadricOrientation(solid_sphere, GLU_OUTSIDE);
+	gluQuadricDrawStyle(solid_sphere, GLU_FILL);
+	gluQuadricTexture(solid_sphere, GL_TRUE);
+
+	loadTexture();
 
 	// 콜백 함수 등록
 	glutDisplayFunc(MyDisplay);
